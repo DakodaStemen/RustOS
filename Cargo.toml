@@ -1,0 +1,23 @@
+[package]
+name = "RustTest"
+version = "0.1.0"
+edition = "2021"
+authors = ["DakodaStemen"]
+description = "A minimal, bootable x86_64 operating system kernel written in Rust"
+license = "MIT"
+repository = "https://github.com/DakodaStemen/RustOS"
+homepage = "https://github.com/DakodaStemen/RustOS"
+keywords = ["os", "kernel", "bare-metal", "x86_64", "bootloader", "operating-system"]
+categories = ["os", "embedded", "no-std"]
+
+[dependencies]
+bootloader = "0.11"
+volatile = "0.4"
+spin = "0.9"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+

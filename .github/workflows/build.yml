@@ -1,0 +1,67 @@
+name: Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    name: Build Kernel
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          toolchain: nightly
+          components: llvm-tools-preview
+      
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      
+      - name: Install bootimage
+        run: |
+          cargo install bootimage --version "^0.11" --force
+      
+      - name: Add target
+        run: rustup target add x86_64-unknown-none
+      
+      - name: Check code
+        run: cargo check --target x86_64-unknown-none
+      
+      - name: Build bootable image
+        run: cargo bootimage --target x86_64-unknown-none
+      
+      - name: Verify image exists
+        run: |
+          IMAGE_PATH="target/x86_64-unknown-none/release/boot-bios-RustTest.img"
+          if [ ! -f "$IMAGE_PATH" ]; then
+            echo "Error: Boot image not found at $IMAGE_PATH"
+            exit 1
+          fi
+          echo "Boot image created successfully: $IMAGE_PATH"
+          ls -lh "$IMAGE_PATH"
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        if: success()
+        with:
+          name: boot-image
+          path: target/x86_64-unknown-none/release/boot-bios-RustTest.img
+          retention-days: 7
+

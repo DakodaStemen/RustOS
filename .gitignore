@@ -1,0 +1,34 @@
+# Rust build artifacts
+/target/
+Cargo.lock
+
+# Boot images and binaries
+*.img
+*.bin
+*.iso
+
+# Cargo local binaries
+.cargo/bin/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Backup files
+*.bak
+*.tmp
+
+# Logs
+*.log
+
+# QEMU related
+qemu-*
+
+# Build artifacts
+build/
+dist/
+
