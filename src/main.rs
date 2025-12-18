@@ -78,33 +78,90 @@ fn kernel_main(_boot_info: &'static BootInfo) -> ! {
 /// This function must never return (diverging function), which is enforced by
 /// the `-> !` return type. The infinite loop prevents the function from returning.
 ///
-/// We attempt to write panic information to the VGA buffer, but if that fails
-/// (e.g., if the panic occurred during VGA initialization), we just loop.
+/// We attempt to write panic information to the VGA buffer using a lock-free
+/// approach to avoid deadlock if the panic occurred while holding the WRITER lock.
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    // Try to write panic message to VGA buffer for debugging
-    // Note: We use lock() which will spin forever if the lock is held.
-    // This is acceptable in a panic handler since we're going to loop forever anyway.
-    // If the panic occurred before VGA was initialized, this might not work,
-    // but it's better than doing nothing.
-    use vga_buffer::{WRITER, Color};
-    use core::fmt::Write;
+    use vga_buffer::{Color, ColorCode, panic_write_string};
     
-    // Attempt to get the lock and write panic info
-    // If this panics or deadlocks, we'll just loop forever (which we do anyway)
-    let mut writer = WRITER.lock();
-    writer.set_color(Color::Red, Color::Black);
-    let _ = write!(writer, "PANIC: ");
-    if let Some(location) = info.location() {
-        let _ = write!(writer, "{}:{}:{}", 
-            location.file(), 
-            location.line(), 
-            location.column());
+    // Try to write panic message to VGA buffer using lock-free approach
+    // This avoids deadlock if panic occurred while WRITER lock is held.
+    // We use a lock-free write function that directly accesses the VGA buffer
+    // without going through the Mutex, preventing deadlock scenarios.
+    let color_code = ColorCode::from_colors(Color::Red, Color::Black);
+    
+    // Write basic panic message (lock-free, avoids deadlock)
+    // SAFETY: panic_write_string is safe to call from panic handler because:
+    // 1. Panics are single-threaded (no concurrent access from other threads)
+    // 2. VGA buffer at 0xb8000 is always valid in bootloader context
+    // 3. We're already in a panic state, so avoiding deadlock is critical
+    // 4. The function performs bounds checking to prevent out-of-bounds access
+    unsafe {
+        // Write "PANIC" message to the first row
+        panic_write_string("PANIC!", 0, 0, color_code);
+        
+        // Try to write file name if location is available (safe UTF-8 truncation)
+        if let Some(location) = info.location() {
+            let file = location.file();
+            // Truncate file name to fit on screen (max 40 characters to leave room for "Line: " at column 40)
+            // We must truncate at a UTF-8 character boundary to avoid panicking
+            // if the truncation point lands in the middle of a multi-byte character.
+            // Layout: File name (cols 0-39), "Line: " (cols 40-45), line number (cols 46+)
+            let max_chars = 40;
+            
+            // Find the byte position after the max_chars-th character
+            // This ensures we truncate at a valid UTF-8 character boundary
+            let mut safe_byte_len = 0;
+            let mut char_count = 0;
+            
+            for (byte_pos, ch) in file.char_indices() {
+                if char_count >= max_chars {
+                    // We've found max_chars characters, truncate before this one
+                    safe_byte_len = byte_pos;
+                    break;
+                }
+                // Move past this character
+                safe_byte_len = byte_pos + ch.len_utf8();
+                char_count += 1;
+            }
+            
+            // If we didn't reach max_chars, safe_byte_len is already at the end
+            // safe_byte_len is now guaranteed to be at a character boundary
+            
+            if safe_byte_len > 0 && safe_byte_len <= file.len() {
+                // safe_byte_len is guaranteed to be at a UTF-8 character boundary
+                // because we calculated it by iterating through characters with char_indices()
+                // and using ch.len_utf8() to find the end of each character.
+                // Therefore, &file[..safe_byte_len] is safe and won't panic.
+                let file_slice = &file[..safe_byte_len];
+                panic_write_string(file_slice, 1, 0, color_code);
+            }
+            
+            // Write line number as simple string (limited formatting)
+            let line = location.line();
+            if line < 10000 {
+                // Simple approach: write line number digits manually
+                let mut line_buf = [b'0'; 5];
+                let mut num = line;
+                let mut idx = 4;
+                
+                if num == 0 {
+                    line_buf[idx] = b'0';
+                    idx -= 1;
+                } else {
+                    while num > 0 && idx > 0 {
+                        line_buf[idx] = b'0' + (num % 10) as u8;
+                        num /= 10;
+                        idx -= 1;
+                    }
+                }
+                
+                let line_str = core::str::from_utf8(&line_buf[idx + 1..]).unwrap_or("?");
+                panic_write_string("Line: ", 1, 40, color_code);
+                panic_write_string(line_str, 1, 46, color_code);
+            }
+        }
     }
-    if let Some(message) = info.message() {
-        let _ = write!(writer, " - {:?}", message);
-    }
-    drop(writer);
     
     // Infinite loop - kernel is halted
     loop {

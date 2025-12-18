@@ -27,10 +27,16 @@ pub enum Color {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
-struct ColorCode(u8);
+pub struct ColorCode(u8);
 
 impl ColorCode {
     fn new(foreground: Color, background: Color) -> ColorCode {
+        ColorCode((background as u8) << 4 | (foreground as u8))
+    }
+    
+    /// Create a ColorCode from foreground and background colors.
+    /// Public for use in panic handler.
+    pub fn from_colors(foreground: Color, background: Color) -> ColorCode {
         ColorCode((background as u8) << 4 | (foreground as u8))
     }
 }
@@ -177,4 +183,65 @@ use spin::Mutex;
 /// 3. First access happens in kernel_main after bootloader has set up memory
 /// 4. All buffer accesses use Volatile<T> to prevent compiler optimizations
 pub static WRITER: Mutex<Writer> = Mutex::new(Writer::new());
+
+/// Panic-safe function to write directly to VGA buffer without acquiring the lock.
+///
+/// This function bypasses the Mutex to avoid deadlock if a panic occurs while
+/// the WRITER lock is held. It directly accesses the VGA buffer at 0xb8000.
+///
+/// # Safety
+///
+/// This function is unsafe because:
+/// 1. It bypasses the Mutex synchronization
+/// 2. It directly accesses the VGA buffer without lock protection
+///
+/// However, it's safe to use in a panic handler because:
+/// 1. Panics are single-threaded (no concurrent access)
+/// 2. We're already in a panic state, so avoiding deadlock is more important
+/// 3. The VGA buffer at 0xb8000 is always valid in x86_64 bootloader context
+///
+/// # Arguments
+///
+/// * `s` - The string to write to the VGA buffer
+/// * `row` - The row to write to (0-24)
+/// * `col` - The starting column (0-79)
+/// * `color_code` - The color code to use
+pub unsafe fn panic_write_string(s: &str, row: usize, col: usize, color_code: ColorCode) {
+    // Bounds checking to prevent out-of-bounds access
+    if row >= BUFFER_HEIGHT || col >= BUFFER_WIDTH {
+        return;
+    }
+    
+    // SAFETY: 0xb8000 is the standard VGA text buffer address.
+    // This is safe in panic context because we're single-threaded and
+    // the buffer is always available in bootloader context.
+    // The function is marked unsafe, so callers must ensure proper usage.
+    let buffer = &mut *(0xb8000 as *mut Buffer);
+    
+    let mut current_col = col;
+    for byte in s.bytes() {
+        if current_col >= BUFFER_WIDTH {
+            break;
+        }
+        
+        // Filter valid characters (same as Writer::write_string)
+        let char_byte = match byte {
+            0x20..=0x7e | b'\n' => byte,
+            _ => 0xfe, // Block character for invalid bytes
+        };
+        
+        if char_byte == b'\n' {
+            // Newline handling would require row management, but for panic
+            // messages we'll just stop to keep it simple
+            break;
+        }
+        
+        buffer.chars[row][current_col].write(ScreenChar {
+            ascii_character: char_byte,
+            color_code,
+        });
+        
+        current_col += 1;
+    }
+}
 
