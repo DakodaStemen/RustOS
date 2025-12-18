@@ -36,7 +36,7 @@ jobs:
       
       - name: Install bootimage
         run: |
-          cargo install bootimage --version "^0.11" --force
+          cargo install bootimage --force
       
       - name: Add target
         run: rustup target add x86_64-unknown-none
