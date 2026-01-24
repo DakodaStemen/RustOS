@@ -48,6 +48,7 @@ struct ScreenChar {
     color_code: ColorCode,
 }
 
+#[repr(transparent)]
 struct Buffer {
     chars: [[Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
 }
@@ -216,7 +217,11 @@ pub unsafe fn panic_write_string(s: &str, row: usize, col: usize, color_code: Co
     // This is safe in panic context because we're single-threaded and
     // the buffer is always available in bootloader context.
     // The function is marked unsafe, so callers must ensure proper usage.
-    let buffer = &mut *(0xb8000 as *mut Buffer);
+    //
+    // We use a raw pointer to write directly to avoid creating a mutable reference
+    // to the Buffer, which might already be mutably borrowed by WRITER (which caused
+    // the panic or is held during panic). Aliasing &mut is UB, so we avoid it.
+    let buffer_ptr = 0xb8000 as *mut ScreenChar;
     
     let mut current_col = col;
     for byte in s.bytes() {
@@ -236,7 +241,14 @@ pub unsafe fn panic_write_string(s: &str, row: usize, col: usize, color_code: Co
             break;
         }
         
-        buffer.chars[row][current_col].write(ScreenChar {
+        // Calculate offset: row * WIDTH + col
+        let offset = row * BUFFER_WIDTH + current_col;
+
+        // SAFETY:
+        // 1. buffer_ptr (0xb8000) is valid.
+        // 2. offset is within bounds (checked at start and loop condition).
+        // 3. We use write_volatile to prevent optimization.
+        buffer_ptr.add(offset).write_volatile(ScreenChar {
             ascii_character: char_byte,
             color_code,
         });
