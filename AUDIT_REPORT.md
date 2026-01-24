@@ -6,7 +6,7 @@
 - **Buffer Layout Definition:** The `Buffer` struct in `src/vga_buffer.rs` is not marked with `#[repr(transparent)]` or `#[repr(C)]`. While it only contains one field (`chars`), Rust does not guarantee the layout of structs without a `repr` attribute. When casting a raw pointer (0xb8000) to this struct, we rely on the memory layout matching the hardware VGA buffer. This is a potential safety issue.
 
 ### Broken Dependencies
-- **Critical Build Failure:** The project currently fails to compile due to issues with `serde_core` (likely a dependency of `bootloader`). The error indicates missing standard library types (`Result`, `Option`), suggesting an incompatibility with the current `nightly` toolchain or missing `no_std` configuration in the dependency tree.
+- **Resolved:** `bootloader` v0.11.x was pulling in host-side dependencies (`serde`, `getrandom`, etc.) incompatible with the `no_std` target. The dependency was downgraded to `bootloader = "0.9.33"` (and `volatile = "0.2.7"`), which correctly supports `no_std` bare-metal builds. The build now passes.
 
 ### Undocumented Edge Cases
 - **VGA Buffer Alignment:** The code assumes `0xb8000` is properly aligned for the `Buffer` struct. While safe on x86_64 for this specific struct, it is an implicit assumption.
@@ -23,11 +23,12 @@
   If a panic occurs while the global `WRITER` lock is held, there will be two active mutable references to the same memory address (one inside the locked `WRITER`, one in `panic_write_string`). This violates Rust's aliasing rules and constitutes Undefined Behavior (UB).
 
 - **High: `Writer` Initialization Safety:**
-  The `Writer::new` function initializes the `buffer` field by creating a `&'static mut Buffer` from a raw pointer. While convenient, holding a long-lived mutable reference to a global memory-mapped region inside a struct can be risky if not carefully managed (as seen with the panic handler issue).
+  The `Writer::new` function initializes the `buffer` field by creating a `&'static mut Buffer` from a raw pointer. While convenient, holding a long-lived mutable reference to a global memory-mapped region inside a struct can be risky if not carefully managed (as seen with the panic handler issue). Additionally, initializing this in a `static` context with raw pointers can lead to compile-time Undefined Behavior errors (E0080).
 
 ### Remediations
 - **Fix UB in Panic Handler:** Rewrite `panic_write_string` to use raw pointers and `write_volatile` directly, avoiding the creation of a `&mut Buffer` reference. This allows safe writing to the VGA buffer even if a reference is held elsewhere (since the other context is effectively halted/dead during panic).
 - **Fix Buffer Layout:** Add `#[repr(transparent)]` to the `Buffer` struct definition to guarantee its layout matches the wrapped field.
+- **Safe Initialization:** Use `spin::Lazy` to initialize the `WRITER` at runtime, avoiding const-eval issues with raw pointers.
 
 ## 3. Stability & Performance Audit
 
