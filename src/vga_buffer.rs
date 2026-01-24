@@ -30,13 +30,13 @@ pub enum Color {
 pub struct ColorCode(u8);
 
 impl ColorCode {
-    fn new(foreground: Color, background: Color) -> ColorCode {
+    const fn new(foreground: Color, background: Color) -> ColorCode {
         ColorCode((background as u8) << 4 | (foreground as u8))
     }
     
     /// Create a ColorCode from foreground and background colors.
     /// Public for use in panic handler.
-    pub fn from_colors(foreground: Color, background: Color) -> ColorCode {
+    pub const fn from_colors(foreground: Color, background: Color) -> ColorCode {
         ColorCode((background as u8) << 4 | (foreground as u8))
     }
 }
@@ -48,6 +48,7 @@ struct ScreenChar {
     color_code: ColorCode,
 }
 
+#[repr(transparent)]
 struct Buffer {
     chars: [[Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
 }
@@ -75,7 +76,7 @@ impl Writer {
     ///
     /// The static WRITER is initialized at compile time, but the actual memory access
     /// only occurs when `lock()` is called, which happens after kernel_main starts.
-    pub fn new() -> Writer {
+    pub const fn new() -> Writer {
         Writer {
             column_position: 0,
             color_code: ColorCode::new(Color::Yellow, Color::Black),
@@ -167,13 +168,11 @@ impl fmt::Write for Writer {
     }
 }
 
-use spin::Mutex;
+use spin::{Mutex, Lazy};
 
 /// Global VGA text buffer writer.
 ///
-/// This static is initialized at compile time, but the actual VGA buffer access
-/// only occurs when `lock()` is called. The Writer::new() function creates a pointer
-/// to 0xb8000, but doesn't dereference it until write operations occur.
+/// This static is initialized lazily. The actual initialization happens on first access.
 ///
 /// # Safety
 ///
@@ -182,7 +181,7 @@ use spin::Mutex;
 /// 2. spin::Mutex provides synchronization (no heap allocation required)
 /// 3. First access happens in kernel_main after bootloader has set up memory
 /// 4. All buffer accesses use Volatile<T> to prevent compiler optimizations
-pub static WRITER: Mutex<Writer> = Mutex::new(Writer::new());
+pub static WRITER: Lazy<Mutex<Writer>> = Lazy::new(|| Mutex::new(Writer::new()));
 
 /// Panic-safe function to write directly to VGA buffer without acquiring the lock.
 ///
@@ -216,7 +215,11 @@ pub unsafe fn panic_write_string(s: &str, row: usize, col: usize, color_code: Co
     // This is safe in panic context because we're single-threaded and
     // the buffer is always available in bootloader context.
     // The function is marked unsafe, so callers must ensure proper usage.
-    let buffer = &mut *(0xb8000 as *mut Buffer);
+    //
+    // We use a raw pointer to write directly to avoid creating a mutable reference
+    // to the Buffer, which might already be mutably borrowed by WRITER (which caused
+    // the panic or is held during panic). Aliasing &mut is UB, so we avoid it.
+    let buffer_ptr = 0xb8000 as *mut ScreenChar;
     
     let mut current_col = col;
     for byte in s.bytes() {
@@ -236,7 +239,14 @@ pub unsafe fn panic_write_string(s: &str, row: usize, col: usize, color_code: Co
             break;
         }
         
-        buffer.chars[row][current_col].write(ScreenChar {
+        // Calculate offset: row * WIDTH + col
+        let offset = row * BUFFER_WIDTH + current_col;
+
+        // SAFETY:
+        // 1. buffer_ptr (0xb8000) is valid.
+        // 2. offset is within bounds (checked at start and loop condition).
+        // 3. We use write_volatile to prevent optimization.
+        buffer_ptr.add(offset).write_volatile(ScreenChar {
             ascii_character: char_byte,
             color_code,
         });

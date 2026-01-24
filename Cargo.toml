@@ -11,8 +11,8 @@ keywords = ["os", "kernel", "bare-metal", "x86_64", "bootloader", "operating-sys
 categories = ["os", "embedded", "no-std"]
 
 [dependencies]
-bootloader = "0.11"
-volatile = "0.4"
+bootloader = { version = "0.9.23", features = ["map_physical_memory"] }
+volatile = "0.2.6"
 spin = "0.9"
 
 [profile.dev]
@@ -20,4 +20,3 @@ panic = "abort"
 
 [profile.release]
 panic = "abort"
-
