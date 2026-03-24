@@ -1,0 +1,30 @@
+[package]
+name = "rust-os"
+version = "0.1.0"
+edition = "2021"
+authors = ["DakodaStemen"]
+description = "A minimal, bootable x86_64 operating system kernel written in Rust"
+license = "MIT"
+repository = "https://github.com/DakodaStemen/RustOS"
+homepage = "https://github.com/DakodaStemen/RustOS"
+keywords = ["os", "kernel", "bare-metal", "x86_64", "bootloader"]
+categories = ["operating-systems", "embedded", "no-std"]
+
+[dependencies]
+bootloader = { version = "0.9.23", features = ["map_physical_memory"] }
+volatile = "0.2.6"
+spin = "0.9"
+x86_64 = "0.14.12"
+lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
+linked_list_allocator = "0.10.5"
+pic8259 = "0.10.1"
+pc-keyboard = "0.7.0"
+crossbeam-queue = { version = "0.3.11", default-features = false, features = ["alloc"] }
+futures-util = { version = "0.3.30", default-features = false, features = ["alloc"] }
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+
