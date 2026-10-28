@@ -74,6 +74,13 @@ impl Writer {
     pub fn write_byte(&mut self, byte: u8) {
         match byte {
             b'\n' => self.new_line(),
+            0x08 => {
+                if self.column_position > 0 {
+                    self.column_position -= 1;
+                    let blank = ScreenChar { ascii_character: b' ', color_code: self.color_code };
+                    unsafe { &mut (*self.buffer).chars[BUFFER_HEIGHT - 1][self.column_position] }.write(blank);
+                }
+            }
             byte => {
                 if self.column_position >= BUFFER_WIDTH {
                     self.new_line();
@@ -94,7 +101,7 @@ impl Writer {
     pub fn write_string(&mut self, s: &str) {
         for byte in s.bytes() {
             match byte {
-                0x20..=0x7e | b'\n' => self.write_byte(byte),
+                0x20..=0x7e | b'\n' | 0x08 => self.write_byte(byte),
                 _ => self.write_byte(0xfe),
             }
         }
@@ -141,6 +148,18 @@ pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
     x86_64::instructions::interrupts::without_interrupts(|| {
         WRITER.lock().write_fmt(args).unwrap();
+        let mut s = alloc::string::String::new();
+        let _ = s.write_fmt(args);
+        crate::serial::write_str(&s);
+    });
+}
+
+pub fn clear_screen() {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let mut w = WRITER.lock();
+        for _ in 0..BUFFER_HEIGHT {
+            w.new_line();
+        }
     });
 }
 
