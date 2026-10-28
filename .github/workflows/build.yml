@@ -36,5 +36,8 @@ jobs:
       - name: Build bootable image
         run: cargo bootimage --release
 
+      - name: In-kernel tests (cargo test, custom test framework + isa-debug-exit)
+        run: cargo test
+
       - name: Boot in QEMU and run integration test
         run: python3 tests/qemu_test.py

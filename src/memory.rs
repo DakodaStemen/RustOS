@@ -1,4 +1,4 @@
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use x86_64::{
     structures::paging::{
         PageTable, OffsetPageTable, FrameAllocator, PhysFrame, Size4KiB,
@@ -6,6 +6,27 @@ use x86_64::{
     VirtAddr, PhysAddr,
 };
 use bootloader::bootinfo::{MemoryMap, MemoryRegionType};
+
+static USABLE_BYTES: AtomicU64 = AtomicU64::new(0);
+static FRAMES_HANDED_OUT: AtomicU64 = AtomicU64::new(0);
+
+/// Remember total usable RAM (from the bootloader memory map) for `mem`.
+pub fn record_usable(map: &MemoryMap) {
+    let total: u64 = map
+        .iter()
+        .filter(|r| r.region_type == MemoryRegionType::Usable)
+        .map(|r| (r.range.end_frame_number - r.range.start_frame_number) * 4096)
+        .sum();
+    USABLE_BYTES.store(total, Ordering::Relaxed);
+}
+
+/// (usable RAM bytes, bytes of physical frames allocated by the kernel).
+pub fn frame_stats() -> (u64, u64) {
+    (
+        USABLE_BYTES.load(Ordering::Relaxed),
+        FRAMES_HANDED_OUT.load(Ordering::Relaxed) * 4096,
+    )
+}
 
 static MEMORY_INIT_CALLED: AtomicBool = AtomicBool::new(false);
 
@@ -80,6 +101,7 @@ unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
                 let addr = PhysAddr::new(self.next_frame * 4096);
                 let frame = PhysFrame::containing_address(addr);
                 self.next_frame += 1;
+                FRAMES_HANDED_OUT.fetch_add(1, Ordering::Relaxed);
                 return Some(frame);
             }
             self.region_index += 1;

@@ -26,3 +26,30 @@ pub fn write_str(s: &str) {
         }
     }
 }
+
+struct SerialWriter;
+
+impl core::fmt::Write for SerialWriter {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        write_str(s);
+        Ok(())
+    }
+}
+
+#[doc(hidden)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub fn _print(args: core::fmt::Arguments) {
+    use core::fmt::Write;
+    SerialWriter.write_fmt(args).ok();
+}
+
+#[macro_export]
+macro_rules! serial_print {
+    ($($arg:tt)*) => ($crate::serial::_print(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! serial_println {
+    () => ($crate::serial_print!("\n"));
+    ($($arg:tt)*) => ($crate::serial_print!("{}\n", format_args!($($arg)*)));
+}

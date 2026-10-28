@@ -217,12 +217,48 @@ The following capabilities are already implemented in the kernel:
 - **Interrupts**: IDT configured with hardware interrupt handlers via PIC
 - **Keyboard Input**: PS/2 keyboard driver with scancode processing
 - **Heap Allocator**: Kernel heap is available; `Vec`, `String`, and other heap types work
-- **Async Tasks**: Cooperative task executor using async/await for concurrent kernel tasks
+- **Async Tasks**: Waker-based cooperative executor (see below)
+
+## Async executor
+
+`src/task/executor.rs` follows the blog_os async/await design:
+
+- `Task` wraps a pinned boxed future and gets a unique `TaskId` from an atomic counter.
+- `Executor` keeps `tasks: BTreeMap<TaskId, Task>`, a shared `Arc<ArrayQueue<TaskId>>` of woken ids, and a `waker_cache`.
+- `TaskWaker` implements `alloc::task::Wake`; waking pushes the id on the queue (no allocation, safe in IRQ context).
+- `run()` loops `run_ready_tasks()` then `sleep_if_idle()`: interrupts are disabled, the queue is checked, and if empty `enable_and_hlt` (sti; hlt) runs atomically so a wake-up cannot be lost.
+- The keyboard IRQ pushes scancodes into a static `ArrayQueue<u8>` and calls `AtomicWaker::wake`; `ScancodeStream` registers its waker before checking the queue.
+
+```mermaid
+sequenceDiagram
+    participant HW as PS/2 IRQ1
+    participant Q as SCANCODE_QUEUE
+    participant W as AtomicWaker/TaskWaker
+    participant E as Executor
+    participant T as keyboard task
+    E->>T: poll (queue empty)
+    T-->>E: Pending (waker registered)
+    E->>E: queue empty -> enable_and_hlt
+    HW->>Q: push scancode
+    HW->>W: wake()
+    W->>E: push TaskId
+    E->>T: poll -> shell::handle_char / handle_key
+```
+
+## Testing architecture
+
+- `cargo test` uses `#![test_runner]` + `#![reexport_test_harness_main]`. Under `cfg(test)`, `kernel_main` runs `init()` (GDT/IDT/paging/heap) then `test_main()`. Results go to COM1; `isa-debug-exit` (port `0xf4`) ends QEMU with exit code 33 on success, 35 on failure. The `[package.metadata.bootimage]` table in `Cargo.toml` sets the QEMU args and success code.
+- `tests/qemu_test.py` boots the normal release image and drives the shell through the QEMU monitor.
+
+## Heap and memory
+
+The heap is 1 MiB at `0x4444_4444_0000`, mapped page by page from `BootInfoFrameAllocator` in `allocator::init_heap`. The shell `mem` command reports `LockedHeap` used/free and total usable RAM from the bootloader memory map.
 
 ## Future Enhancements
 
 Potential additions:
 - **File System**: Simple file system support
+- Preemptive scheduling, userspace, bootloader 0.11 migration (see README roadmap)
 
 ## References
 
