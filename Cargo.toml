@@ -28,3 +28,10 @@ panic = "abort"
 [profile.release]
 panic = "abort"
 
+
+[package.metadata.bootimage]
+# `cargo test` boots each test image in QEMU; isa-debug-exit lets the kernel
+# report pass/fail as the QEMU process exit status ((0x10 << 1) | 1 = 33).
+test-args = ["-device", "isa-debug-exit,iobase=0xf4,iosize=0x04", "-serial", "stdio", "-display", "none"]
+test-success-exit-code = 33
+test-timeout = 60
