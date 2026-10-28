@@ -1,4 +1,3 @@
-use crate::print;
 use crossbeam_queue::ArrayQueue;
 use core::{pin::Pin, task::{Context, Poll}};
 use futures_util::stream::Stream;
@@ -50,8 +49,8 @@ pub async fn print_keypresses() {
         if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
             if let Some(key) = keyboard.process_keyevent(key_event) {
                 match key {
-                    pc_keyboard::DecodedKey::Unicode(character) => print!("{}", character),
-                    pc_keyboard::DecodedKey::RawKey(key) => print!("{:?}", key),
+                    pc_keyboard::DecodedKey::Unicode(character) => crate::shell::handle_char(character),
+                    pc_keyboard::DecodedKey::RawKey(_) => {}
                 }
             }
         }

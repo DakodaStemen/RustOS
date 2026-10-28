@@ -15,6 +15,8 @@ mod gdt;
 mod memory;
 mod allocator;
 mod task;
+mod serial;
+mod shell;
 
 use task::executor::SimpleExecutor;
 use task::Task;
@@ -25,8 +27,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     use x86_64::VirtAddr;
     use memory::BootInfoFrameAllocator;
 
-    println!("Hello World{}", "!");
-
+    serial::init();
     gdt::init();
     interrupts::init_idt();
 
@@ -54,7 +55,9 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     core::mem::drop(reference_counted);
     println!("reference count is {} now", Rc::strong_count(&cloned_reference));
 
+    println!("RustOS booted: heap, IDT, PIC online");
     x86_64::instructions::interrupts::enable();
+    shell::init();
 
     let mut executor = SimpleExecutor::new();
     executor.spawn(Task::new(task::keyboard::print_keypresses()));

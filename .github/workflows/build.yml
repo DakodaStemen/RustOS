@@ -8,30 +8,33 @@ on:
 
 jobs:
   build:
-    name: Build Kernel
+    name: Build and QEMU test
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@v1
-        with:
-          toolchain: nightly
-          components: rust-src, llvm-tools-preview
-          targets: x86_64-unknown-none
+      - name: Install Rust toolchain (from rust-toolchain.toml)
+        run: rustup show
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
+      - name: Install QEMU
+        run: sudo apt-get update && sudo apt-get install -y qemu-system-x86
+
+      - uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/bootimage
+            ~/.cargo/bin/cargo-bootimage
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock', 'rust-toolchain.toml') }}
 
-      - name: Check
-        run: cargo check --target x86_64-unknown-none
+      - name: Install bootimage
+        run: command -v bootimage || cargo install bootimage --locked
+
+      - name: Build bootable image
+        run: cargo bootimage --release
+
+      - name: Boot in QEMU and run integration test
+        run: python3 tests/qemu_test.py

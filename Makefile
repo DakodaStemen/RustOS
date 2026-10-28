@@ -7,17 +7,20 @@ all: build
 build:
 	@echo "Building bootable image..."
 	cargo bootimage --release
-	@echo "Build complete! Image: target/x86_64-unknown-none/release/boot-bios-rust-os.img"
+	@echo "Build complete! Image: target/x86_64-unknown-none/release/bootimage-rust-os.bin"
 
 # Build and run in QEMU
 run: build
 	@echo "Starting QEMU..."
-	qemu-system-x86_64 -drive format=raw,file=target/x86_64-unknown-none/release/boot-bios-rust-os.img
+	qemu-system-x86_64 -drive format=raw,file=target/x86_64-unknown-none/release/bootimage-rust-os.bin
 
 # Run with curses display (better for terminal recording)
 test: build
+	python3 tests/qemu_test.py
+
+run-curses: build
 	@echo "Starting QEMU with curses display..."
-	qemu-system-x86_64 -drive format=raw,file=target/x86_64-unknown-none/release/boot-bios-rust-os.img -display curses
+	qemu-system-x86_64 -drive format=raw,file=target/x86_64-unknown-none/release/bootimage-rust-os.bin -display curses
 
 # Run cargo check
 check:

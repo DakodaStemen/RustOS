@@ -3,6 +3,16 @@ use crate::gdt;
 use lazy_static::lazy_static;
 use pic8259::ChainedPics;
 
+use core::sync::atomic::{AtomicU64, Ordering};
+
+static TICKS: AtomicU64 = AtomicU64::new(0);
+
+/// Timer interrupts seen since boot (PIT default ~18.2 Hz).
+pub fn ticks() -> u64 { TICKS.load(Ordering::Relaxed) }
+
+/// Approximate uptime: PIT default divisor 65536 at 1.193182 MHz.
+pub fn uptime_ms() -> u64 { ticks() * 65536 * 1000 / 1_193_182 }
+
 pub const PIC_1_OFFSET: u8 = 32;
 pub const PIC_2_OFFSET: u8 = 40;
 
@@ -86,6 +96,7 @@ extern "x86-interrupt" fn page_fault_handler(
 }
 
 extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {
+    TICKS.fetch_add(1, Ordering::Relaxed);
     unsafe {
         PICS.lock().notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
     }
