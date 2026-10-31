@@ -3,7 +3,7 @@ use core::{pin::Pin, task::{Context, Poll}};
 use futures_util::stream::Stream;
 use futures_util::stream::StreamExt;
 use futures_util::task::AtomicWaker;
-use pc_keyboard::{layouts, HandleControl, Keyboard, ScancodeSet1};
+use pc_keyboard::{layouts, HandleControl, PS2Keyboard, ScancodeSet1};
 use lazy_static::lazy_static;
 
 lazy_static! {
@@ -39,7 +39,7 @@ impl Stream for ScancodeStream {
 
 pub async fn print_keypresses() {
     let mut scancodes = ScancodeStream::new();
-    let mut keyboard = Keyboard::new(
+    let mut keyboard = PS2Keyboard::new(
         ScancodeSet1::new(),
         layouts::Us104Key,
         HandleControl::Ignore,
