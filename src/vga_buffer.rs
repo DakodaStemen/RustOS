@@ -44,7 +44,7 @@ struct ScreenChar {
 }
 
 struct Buffer {
-    chars: [[Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
+    chars: [[ScreenChar; BUFFER_WIDTH]; BUFFER_HEIGHT],
 }
 
 pub struct Writer {
@@ -66,6 +66,16 @@ impl Writer {
         }
     }
 
+    /// Volatile handle to one VGA cell.
+    fn cell(&mut self, row: usize, col: usize) -> Volatile<&mut ScreenChar> {
+        assert!(row < BUFFER_HEIGHT && col < BUFFER_WIDTH);
+        // SAFETY: bounds checked above; self.buffer points at the VGA text buffer,
+        // which is valid for the whole kernel lifetime.
+        unsafe {
+            Volatile::new(&mut (*self.buffer).chars[row][col])
+        }
+    }
+
     #[allow(dead_code)]
     pub fn set_color(&mut self, foreground: Color, background: Color) {
         self.color_code = ColorCode::from_colors(foreground, background);
@@ -78,7 +88,7 @@ impl Writer {
                 if self.column_position > 0 {
                     self.column_position -= 1;
                     let blank = ScreenChar { ascii_character: b' ', color_code: self.color_code };
-                    unsafe { &mut (*self.buffer).chars[BUFFER_HEIGHT - 1][self.column_position] }.write(blank);
+                    self.cell(BUFFER_HEIGHT - 1, self.column_position).write(blank);
                 }
             }
             byte => {
@@ -89,7 +99,7 @@ impl Writer {
                 let row = BUFFER_HEIGHT - 1;
                 let col = self.column_position;
                 let color_code = self.color_code;
-                unsafe { &mut (*self.buffer).chars[row][col] }.write(ScreenChar {
+                self.cell(row, col).write(ScreenChar {
                     ascii_character: byte,
                     color_code,
                 });
@@ -110,8 +120,8 @@ impl Writer {
     fn new_line(&mut self) {
         for row in 1..BUFFER_HEIGHT {
             for col in 0..BUFFER_WIDTH {
-                let character = unsafe { (*self.buffer).chars[row][col].read() };
-                unsafe { &mut (*self.buffer).chars[row - 1][col] }.write(character);
+                let character = self.cell(row, col).read();
+                self.cell(row - 1, col).write(character);
             }
         }
         self.clear_row(BUFFER_HEIGHT - 1);
@@ -124,7 +134,7 @@ impl Writer {
             color_code: self.color_code,
         };
         for col in 0..BUFFER_WIDTH {
-            unsafe { &mut (*self.buffer).chars[row][col] }.write(blank);
+            self.cell(row, col).write(blank);
         }
     }
 }
