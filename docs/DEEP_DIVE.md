@@ -155,7 +155,7 @@ A cooperative executor cannot call `thread::sleep` or `std::sync::Mutex` — the
 
 ### The Solution
 
-`task/executor.rs` implements a `SimpleExecutor` that polls a set of `Future`s in a cooperative loop. Futures yield via `Poll::Pending` when they have nothing to do (e.g., waiting for the next keypress). They are woken by a waker stored in an `AtomicWaker`, which the interrupt handler calls when new data arrives.
+`task/executor.rs` implements a waker-based `Executor` that polls only woken `Future`s (task ids in an `ArrayQueue`) and halts when idle. Futures yield via `Poll::Pending` when they have nothing to do (e.g., waiting for the next keypress). They are woken by a waker stored in an `AtomicWaker`, which the interrupt handler calls when new data arrives.
 
 ```
 interrupt fires → push scancode to queue → wake AtomicWaker
@@ -222,7 +222,7 @@ RustOS/
 │   ├── vga_buffer.rs      VGA text driver, global Writer, print!/println! macros
 │   └── task/
 │       ├── mod.rs          Task and TaskId types
-│       ├── executor.rs     SimpleExecutor: poll loop, AtomicWaker wakeup
+│       ├── executor.rs     Executor: task ids, waker cache, hlt when idle
 │       └── keyboard.rs     ScancodeStream, async keyboard processing loop
 ├── Cargo.toml
 ├── rust-toolchain.toml    Pins exact nightly version

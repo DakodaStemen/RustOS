@@ -50,7 +50,7 @@ pub async fn print_keypresses() {
             if let Some(key) = keyboard.process_keyevent(key_event) {
                 match key {
                     pc_keyboard::DecodedKey::Unicode(character) => crate::shell::handle_char(character),
-                    pc_keyboard::DecodedKey::RawKey(_) => {}
+                    pc_keyboard::DecodedKey::RawKey(code) => crate::shell::handle_key(code),
                 }
             }
         }

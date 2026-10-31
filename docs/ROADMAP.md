@@ -27,3 +27,7 @@
 2. **Async Tasks**: Create `src/task/mod.rs` and `src/task/keyboard.rs` to handle keyboard input asynchronously.
 3. **Executor**: Create a basic `SimpleExecutor` to poll futures cooperatively.
 4. **Preemption (Stretch Goal)**: Integrate the hardware timer interrupt to force context switches between distinct threads using a Round-Robin scheduler.
+
+## Status (this branch)
+- Done: waker-based `Executor` (replaces `SimpleExecutor`), in-kernel `#[test_case]` tests, 1 MiB heap, shell history / `mem` / `reboot` / `shutdown`.
+- Not done: preemptive round-robin scheduling, userspace, bootloader 0.11 migration.

@@ -1,12 +1,17 @@
 #![no_std]
 #![no_main]
+#![cfg_attr(test, allow(dead_code, unused_imports))]
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
+#![feature(custom_test_frameworks)]
+#![test_runner(crate::test_runner)]
+#![reexport_test_harness_main = "test_main"]
 
 extern crate alloc;
 
 use bootloader::{BootInfo, entry_point};
 use core::panic::PanicInfo;
+#[cfg(not(test))]
 use alloc::{boxed::Box, vec, vec::Vec, rc::Rc};
 
 mod vga_buffer;
@@ -17,13 +22,34 @@ mod allocator;
 mod task;
 mod serial;
 mod shell;
+mod qemu;
+#[cfg(test)]
+mod tests;
 
-use task::executor::SimpleExecutor;
+#[cfg(not(test))]
+use task::executor::Executor;
+#[cfg(not(test))]
 use task::Task;
 
 entry_point!(kernel_main);
 
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
+    init(boot_info);
+
+    #[cfg(test)]
+    test_main();
+
+    #[cfg(not(test))]
+    run_kernel();
+
+    #[cfg(test)]
+    loop {
+        x86_64::instructions::hlt();
+    }
+}
+
+/// Bring up serial, GDT/IDT, paging and the heap. Interrupts stay disabled.
+fn init(boot_info: &'static BootInfo) {
     use x86_64::VirtAddr;
     use memory::BootInfoFrameAllocator;
 
@@ -33,13 +59,17 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
     let mut mapper = unsafe { memory::init(phys_mem_offset) };
+    memory::record_usable(&boot_info.memory_map);
     let mut frame_allocator = unsafe {
         BootInfoFrameAllocator::init(&boot_info.memory_map)
     };
 
     allocator::init_heap(&mut mapper, &mut frame_allocator)
         .expect("heap initialization failed");
+}
 
+#[cfg(not(test))]
+fn run_kernel() -> ! {
     let x = Box::new(41);
     println!("heap_value at {:p}", x);
 
@@ -59,13 +89,9 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     x86_64::instructions::interrupts::enable();
     shell::init();
 
-    let mut executor = SimpleExecutor::new();
+    let mut executor = Executor::new();
     executor.spawn(Task::new(task::keyboard::print_keypresses()));
-    executor.run();
-
-    loop {
-        x86_64::instructions::hlt();
-    }
+    executor.run()
 }
 
 #[alloc_error_handler]
@@ -73,6 +99,38 @@ fn alloc_error_handler(layout: alloc::alloc::Layout) -> ! {
     panic!("allocation error: {:?}", layout)
 }
 
+#[cfg(test)]
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+    serial_println!("[failed]\n");
+    serial_println!("Error: {}\n", info);
+    qemu::exit_qemu(qemu::QemuExitCode::Failed);
+}
+
+#[cfg(test)]
+pub trait Testable {
+    fn run(&self);
+}
+
+#[cfg(test)]
+impl<T: Fn()> Testable for T {
+    fn run(&self) {
+        serial_print!("{}...\t", core::any::type_name::<T>());
+        self();
+        serial_println!("[ok]");
+    }
+}
+
+#[cfg(test)]
+fn test_runner(tests: &[&dyn Testable]) {
+    serial_println!("Running {} tests", tests.len());
+    for test in tests {
+        test.run();
+    }
+    qemu::exit_qemu(qemu::QemuExitCode::Success);
+}
+
+#[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     use vga_buffer::{Color, ColorCode, panic_write_string};
