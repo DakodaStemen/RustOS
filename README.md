@@ -1,3 +1,7 @@
+# Fundus
+
+*Formerly RustOS.*
+
 <div align="center">
 
 ```text
@@ -10,7 +14,7 @@
 
 **A from-scratch x86_64 kernel in Rust: BIOS boot, heap, async executor, PS/2 keyboard, and a tiny shell.**
 
-[![Build](https://github.com/DakodaStemen/RustOS/actions/workflows/build.yml/badge.svg)](https://github.com/DakodaStemen/RustOS/actions/workflows/build.yml)
+[![Build](https://github.com/DakodaStemen/fundus/actions/workflows/build.yml/badge.svg)](https://github.com/DakodaStemen/fundus/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 </div>
