@@ -1,0 +1,11 @@
+* text=auto eol=lf
+
+# Binary: never normalised
+*.bin binary
+*.img binary
+*.iso binary
+*.png binary
+*.gif binary
+
+# Lock files: collapsed in PR diffs
+Cargo.lock linguist-generated

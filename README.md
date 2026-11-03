@@ -108,6 +108,8 @@ flowchart LR
 
 The QEMU script checks: boot banner, prompt, `echo`, `version`, timer ticks, unknown command, `mem` (heap ≥ 1 MiB), history Up/Down, and that `reboot` / `shutdown` terminate QEMU. Both run in CI.
 
+`make ci` runs `cargo check`, `cargo clippy`, the release build, `cargo test` and the QEMU script in one go.
+
 ## Layout
 
 ```text
@@ -139,7 +141,7 @@ See also [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## More
 
-- [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [Deep dive](docs/DEEP_DIVE.md) · [Troubleshooting](TROUBLESHOOTING.md) · [Contributing](CONTRIBUTING.md)
+- [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [Deep dive](docs/DEEP_DIVE.md) · [Troubleshooting](TROUBLESHOOTING.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md) · [ADRs](docs/adr/README.md)
 - Builds on Philipp Oppermann's [Writing an OS in Rust](https://os.phil-opp.com/).
 
 License: MIT
