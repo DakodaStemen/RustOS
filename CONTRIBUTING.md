@@ -44,8 +44,8 @@ Before contributing, ensure you have:
 1. Fork the repository
 2. Clone your fork:
    ```bash
-   git clone https://github.com/DakodaStemen/RustOS.git
-   cd RustOS
+   git clone https://github.com/DakodaStemen/fundus.git
+   cd fundus
    ```
 
 3. Verify setup:

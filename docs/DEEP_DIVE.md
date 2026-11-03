@@ -2,7 +2,7 @@
 
 A minimal, from-scratch x86_64 operating system kernel written entirely in Rust. RustOS boots directly from BIOS, manages physical memory, runs async tasks in the kernel, and echoes keyboard input — all without an underlying OS, standard library, or runtime beneath it.
 
-[![Build Status](https://github.com/DakodaStemen/RustOS/workflows/Build/badge.svg)](https://github.com/DakodaStemen/RustOS/actions)
+[![Build Status](https://github.com/DakodaStemen/fundus/workflows/Build/badge.svg)](https://github.com/DakodaStemen/fundus/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-nightly-brightgreen.svg)](https://www.rust-lang.org/)
 
