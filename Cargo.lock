@@ -100,11 +100,11 @@ checksum = "73c53b65bbadd653c9d125e745d2659a3a060539b17d96ab1c59f9f5bfdacce5"
 
 [[package]]
 name = "pic8259"
-version = "0.10.4"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb844b5b01db1e0b17938685738f113bfc903846f18932b378bc0eabfa40e194"
+checksum = "62d9a86c292b165f757e47e7fd66855def189b2564609bc4203727b27c33db22"
 dependencies = [
- "x86_64 0.14.13",
+ "x86_64",
 ]
 
 [[package]]
@@ -126,7 +126,7 @@ dependencies = [
  "pic8259",
  "spin 0.12.3",
  "volatile 0.6.1",
- "x86_64 0.15.5",
+ "x86_64",
 ]
 
 [[package]]
@@ -182,18 +182,6 @@ name = "volatile"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af8ca9a5d4debca0633e697c88269395493cebf2e10db21ca2dbde37c1356452"
-
-[[package]]
-name = "x86_64"
-version = "0.14.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c101112411baafbb4bf8d33e4c4a80ab5b02d74d2612331c61e8192fc9710491"
-dependencies = [
- "bit_field",
- "bitflags",
- "rustversion",
- "volatile 0.4.6",
-]
 
 [[package]]
 name = "x86_64"
