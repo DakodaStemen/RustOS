@@ -1,227 +1,52 @@
-# Contributing to rust-os
+# Contributing to fundus
 
-Thank you for your interest in contributing! This document provides guidelines and instructions for contributing to the project.
+`main` stays stable. Work happens on branches and lands through a pull request. Run `make ci` before you push: it runs cargo check, clippy, the release build, the in-kernel tests and the QEMU shell test.
 
-## Getting Started
+## Setup
 
-### Prerequisites
+Needs `rustup`, QEMU (`qemu-system-x86_64`) and Python 3.
 
-Before contributing, ensure you have:
-
-1. **Rust Nightly Toolchain**
-
-   The repo contains a `rust-toolchain.toml` file that pins the exact nightly version. Running any `cargo` command will automatically install and use the correct toolchain — no manual `rustup override` needed.
-
-2. **Target Architecture**
-   ```bash
-   rustup target add x86_64-unknown-none
-   ```
-
-3. **LLVM Tools**
-   ```bash
-   rustup component add llvm-tools-preview
-   ```
-
-4. **Bootimage Tool**
-   ```bash
-   cargo install bootimage --version "^0.10"
-   ```
-
-5. **QEMU** (for testing)
-   ```bash
-   # Ubuntu/Debian
-   sudo apt-get install qemu-system-x86
-   
-   # macOS
-   brew install qemu
-   
-   # Windows
-   # Download from https://www.qemu.org/download/
-   ```
-
-### Setup
-
-1. Fork the repository
-2. Clone your fork:
-   ```bash
-   git clone https://github.com/DakodaStemen/fundus.git
-   cd fundus
-   ```
-
-3. Verify setup:
-   ```bash
-   make check
-   make build
-   ```
-
-## Development Workflow
-
-### Making Changes
-
-1. Create a branch for your feature:
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-
-2. Make your changes
-
-3. Test locally:
-   ```bash
-   make build
-   make run  # Or make test for curses display
-   ```
-
-4. Ensure code quality:
-   ```bash
-   cargo fmt
-   cargo clippy --target x86_64-unknown-none
-   ```
-
-### Code Style
-
-We follow standard Rust conventions:
-
-- **Formatting**: Use `cargo fmt` to format code
-- **Linting**: Fix all `cargo clippy` warnings
-- **Documentation**: Document all public APIs
-- **Safety Comments**: Document all `unsafe` blocks with safety justifications
-
-#### Example Safety Comment
-
-```rust
-unsafe {
-    // SAFETY: 0xb8000 is the standard VGA text buffer address in x86_64.
-    // This address is guaranteed to be valid and writable in the bootloader
-    // environment. We use write_volatile via addr_of_mut! to avoid creating
-    // an intermediate reference and to prevent the compiler from optimizing
-    // away the write to this memory-mapped I/O region.
-    let ptr = core::ptr::addr_of_mut!(*(0xb8000 as *mut ScreenChar));
-    core::ptr::write_volatile(ptr, screen_char);
-}
+```sh
+make setup   # installs the nightly pinned in rust-toolchain.toml and bootimage
+make help    # list targets
 ```
 
-### Testing
+## Branches and pull requests
 
-Before submitting a pull request:
+| Prefix | Use |
+| :---- | :---- |
+| `feat/...` | New kernel features |
+| `fix/...` | Bug fixes |
+| `docs/...` | Documentation |
+| `chore/...` | Tooling and repository hygiene |
+| `ci/...` | Workflow changes |
+| `test/...` | Tests only |
 
-1. **Build Test**: Ensure code compiles
-   ```bash
-   cargo build --target x86_64-unknown-none --release
-   ```
+- PR titles follow Conventional Commits, matching the prefix: `feat: add ...`, `fix: ...`.
+- One purpose per PR. Fill in `.github/PULL_REQUEST_TEMPLATE.md`.
+- Commit messages state what changed and why. Weak: `updated files`. Strong: `fix: clamp heap stats when the free list is empty`.
 
-2. **Boot Test**: Verify kernel boots in QEMU
-   ```bash
-   make run
-   ```
+## Running tests and lint
 
-3. **Visual Test**: Check output appears correctly
-   - Text is readable
-   - Colors work as expected
-   - Keyboard input echoes correctly (if testing keyboard driver)
-
-## Adding Features
-
-### Guidelines
-
-1. **Keep it Minimal**: This is a minimal kernel - avoid unnecessary complexity
-2. **Document Everything**: Add comments explaining design decisions
-3. **Safety First**: All `unsafe` code must have safety comments
-4. **Heap is available**: The kernel has a working heap allocator; heap allocations are acceptable
-5. **Test Thoroughly**: Test in QEMU before submitting
-
-### Feature Ideas
-
-Good first issues for new contributors:
-
-- **Text Scrolling**: Improve scrolling behavior
-- **Color Schemes**: Add preset color combinations
-- **Clear Screen**: Add explicit clear screen function
-- **Backspace**: Implement backspace functionality
-- **File System**: Begin work on a simple file system driver
-
-### Example: Adding a New Feature
-
-1. **Plan**: Document what you want to add
-2. **Implement**: Write the code following style guidelines
-3. **Test**: Verify it works in QEMU
-4. **Document**: Update relevant documentation
-5. **Submit**: Create a pull request
-
-## Pull Request Process
-
-### Before Submitting
-
-- [ ] Code compiles without warnings
-- [ ] Code is formatted with `cargo fmt`
-- [ ] All `unsafe` blocks have safety comments
-- [ ] Changes tested in QEMU
-- [ ] Documentation updated if needed
-- [ ] Commit messages are clear and descriptive
-
-### Pull Request Template
-
-When creating a PR, include:
-
-1. **Description**: What does this PR do?
-2. **Changes**: List of changes made
-3. **Testing**: How was it tested?
-4. **Screenshots**: If visual changes (optional)
-
-Example:
-```markdown
-## Description
-Adds keyboard input support using PS/2 controller.
-
-## Changes
-- Added PS/2 keyboard driver
-- Implemented key press detection
-- Added echo of typed characters to screen
-
-## Testing
-Tested in QEMU - keyboard input works correctly and characters appear on screen.
+```sh
+make lint         # cargo check + cargo clippy (rustfmt differences are advisory)
+make test-kernel  # in-kernel #[test_case] suite, boots QEMU (cargo test)
+make test         # builds the release image, boots it headless, drives the shell
+make ci           # all of the above plus the build
 ```
 
-## Code Review
+## Code style
 
-All contributions require code review. Reviewers will check:
+- Format new code with `cargo fmt`; existing files predate the formatter and are not mass-reformatted.
+- Fix clippy warnings in the code you touch.
+- Every `unsafe` block needs a `// SAFETY:` comment saying why it is sound.
+- The kernel has a heap allocator, so heap allocation is fine. Keep the kernel minimal.
+- Document design decisions in comments or in `docs/adr/`.
 
-- Code correctness and safety
-- Adherence to style guidelines
-- Documentation quality
-- Test coverage
+## Reporting issues
 
-Be open to feedback and willing to make changes!
-
-## Reporting Issues
-
-### Bug Reports
-
-When reporting a bug, include:
-
-1. **Description**: What went wrong?
-2. **Steps to Reproduce**: How to trigger the bug
-3. **Expected Behavior**: What should happen?
-4. **Actual Behavior**: What actually happened?
-5. **Environment**: Rust version, OS, QEMU version
-6. **Screenshots**: If applicable
-
-### Feature Requests
-
-For feature requests, include:
-
-1. **Description**: What feature do you want?
-2. **Use Case**: Why is this useful?
-3. **Proposed Implementation**: How would it work? (optional)
-
-## Questions?
-
-- Open an issue for questions
-- Check [TROUBLESHOOTING.md](../TROUBLESHOOTING.md) for common issues
-- Review [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for technical details
+Use the issue templates. For bugs, include the QEMU version, the Rust toolchain (`rustc --version`) and the serial output. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) first, and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for design background. Report vulnerabilities as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the MIT License.
-
-Thank you for contributing! 🦀
-
+By contributing, you agree that your contributions are licensed under the MIT License.

@@ -1,18 +1,43 @@
-.PHONY: all build run run-curses clean check test test-kernel help
+.DEFAULT_GOAL := help
+.PHONY: help setup lint test test-kernel ci all build run run-curses check clean
 
-# Default target
+help:
+	@echo "make setup        install the pinned nightly (rust-toolchain.toml) and bootimage"
+	@echo "make build        build the bootable image"
+	@echo "make run          build and run in QEMU"
+	@echo "make run-curses   run in QEMU with a curses display"
+	@echo "make lint         cargo check and clippy (rustfmt is advisory)"
+	@echo "make test         boot the release image headless in QEMU and drive the shell"
+	@echo "make test-kernel  run the in-kernel #[test_case] suite (cargo test)"
+	@echo "make ci           lint + build + test-kernel + test"
+	@echo "make clean        remove build artifacts"
+
+# Idempotent: rustup show is a no-op once the toolchain is installed.
+setup:
+	rustup show
+	command -v cargo-bootimage >/dev/null || cargo install bootimage --locked
+
 all: build
 
 # Build the bootable image
 build:
-	@echo "Building bootable image..."
 	cargo bootimage --release
-	@echo "Build complete! Image: target/x86_64-unknown-none/release/bootimage-rust-os.bin"
+	@echo "Image: target/x86_64-unknown-none/release/bootimage-rust-os.bin"
 
-# Build and run in QEMU
 run: build
-	@echo "Starting QEMU..."
 	qemu-system-x86_64 -drive format=raw,file=target/x86_64-unknown-none/release/bootimage-rust-os.bin
+
+run-curses: build
+	qemu-system-x86_64 -drive format=raw,file=target/x86_64-unknown-none/release/bootimage-rust-os.bin -display curses
+
+check:
+	cargo check --target x86_64-unknown-none
+
+# clippy warnings are reported but do not fail the build; legacy code still has a few.
+# The rustfmt check is advisory: existing files predate it and are not mass-reformatted.
+lint: check
+	cargo clippy
+	-cargo fmt --check >/dev/null 2>&1 || echo "rustfmt: differences found (advisory)"
 
 # Boot the release image headless in QEMU and drive the shell (tests/qemu_test.py)
 test: build
@@ -22,32 +47,7 @@ test: build
 test-kernel:
 	cargo test
 
-# Run with curses display (better for terminal recording)
+ci: lint build test-kernel test
 
-run-curses: build
-	@echo "Starting QEMU with curses display..."
-	qemu-system-x86_64 -drive format=raw,file=target/x86_64-unknown-none/release/bootimage-rust-os.bin -display curses
-
-# Run cargo check
-check:
-	@echo "Running cargo check..."
-	cargo check --target x86_64-unknown-none
-
-# Clean build artifacts
 clean:
-	@echo "Cleaning build artifacts..."
 	cargo clean
-	@echo "Clean complete!"
-
-# Show help
-help:
-	@echo "Available targets:"
-	@echo "  make build  - Build bootable image"
-	@echo "  make run     - Build and run in QEMU"
-	@echo "  make test    - Boot in headless QEMU and run the shell integration test"
-	@echo "  make test-kernel - Run in-kernel #[test_case] tests (cargo test)"
-	@echo "  make run-curses - Run in QEMU with curses display"
-	@echo "  make check   - Run cargo check"
-	@echo "  make clean   - Clean build artifacts"
-	@echo "  make help    - Show this help message"
-

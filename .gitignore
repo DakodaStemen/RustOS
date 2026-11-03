@@ -31,3 +31,8 @@ qemu-*
 build/
 dist/
 
+
+# Environment and local tooling
+.env
+.venv/
+__pycache__/

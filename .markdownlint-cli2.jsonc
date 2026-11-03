@@ -1,0 +1,39 @@
+{
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD024": {
+      "siblings_only": true
+    },
+    "MD033": false,
+    "MD034": false,
+    "MD036": false,
+    "MD041": false,
+    "MD047": false,
+    "MD060": false,
+    "MD046": {
+      "style": "fenced"
+    }
+  },
+  "globs": [
+    "**/*.md"
+  ],
+  "ignores": [
+    // Legacy long-form notes predate the lint rules; excluded rather than mass-reformatted.
+    "TROUBLESHOOTING.md",
+    "docs/ARCHITECTURE.md",
+    "docs/DEEP_DIVE.md",
+    "docs/ROADMAP.md",
+    "research/**",
+    "target/**",
+    "node_modules/**",
+    "**/node_modules/**",
+    ".venv*/**",
+    "**/.venv/**",
+    "dist/**",
+    ".git/**",
+    ".worktrees/**",
+    ".claude/**",
+    "**/.venv-data/**"
+  ]
+}
